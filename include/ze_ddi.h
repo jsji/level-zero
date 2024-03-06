@@ -999,6 +999,34 @@ typedef ze_result_t (ZE_APICALL *ze_pfnCommandListAppendImageCopyFromMemoryExt_t
     );
 
 ///////////////////////////////////////////////////////////////////////////////
+/// @brief Function-pointer for zeCommandListAppendImageMemoryCopyFromHostExp
+typedef ze_result_t (ZE_APICALL *ze_pfnCommandListAppendImageMemoryCopyFromHostExp_t)(
+    ze_command_list_handle_t,
+    ze_image_mem_handle_exp_t,
+    const void*,
+    const ze_image_region_t*,
+    uint32_t,
+    uint32_t,
+    ze_event_handle_t,
+    uint32_t,
+    ze_event_handle_t*
+    );
+
+///////////////////////////////////////////////////////////////////////////////
+/// @brief Function-pointer for zeCommandListAppendImageMemoryCopyToHostExp
+typedef ze_result_t (ZE_APICALL *ze_pfnCommandListAppendImageMemoryCopyToHostExp_t)(
+    ze_command_list_handle_t,
+    void*,
+    const ze_image_mem_handle_exp_t,
+    const ze_image_region_t*,
+    uint32_t,
+    uint32_t,
+    ze_event_handle_t,
+    uint32_t,
+    ze_event_handle_t*
+    );
+
+///////////////////////////////////////////////////////////////////////////////
 /// @brief Function-pointer for zeCommandListHostSynchronize 
 typedef ze_result_t (ZE_APICALL *ze_pfnCommandListHostSynchronize_t)(
     ze_command_list_handle_t,
@@ -1037,6 +1065,8 @@ typedef struct _ze_command_list_dditable_t
     ze_pfnCommandListAppendLaunchMultipleKernelsIndirect_t      pfnAppendLaunchMultipleKernelsIndirect;
     ze_pfnCommandListAppendImageCopyToMemoryExt_t               pfnAppendImageCopyToMemoryExt;
     ze_pfnCommandListAppendImageCopyFromMemoryExt_t             pfnAppendImageCopyFromMemoryExt;
+    ze_pfnCommandListAppendImageMemoryCopyFromHostExp_t         pfnAppendImageMemoryCopyFromHostExp;
+    ze_pfnCommandListAppendImageMemoryCopyToHostExp_t           pfnAppendImageMemoryCopyToHostExp;
     ze_pfnCommandListHostSynchronize_t                          pfnHostSynchronize;
 } ze_command_list_dditable_t;
 
@@ -1068,6 +1098,22 @@ typedef ze_result_t (ZE_APICALL *ze_pfnImageGetProperties_t)(
     ze_device_handle_t,
     const ze_image_desc_t*,
     ze_image_properties_t*
+    );
+
+///////////////////////////////////////////////////////////////////////////////
+/// @brief Function-pointer for zeMemAllocImageExp
+typedef ze_result_t (ZE_APICALL *ze_pfnImageMemAllocExp_t)(
+    ze_context_handle_t,
+    ze_device_handle_t,
+    const ze_image_desc_t*,
+    ze_image_mem_handle_exp_t*
+    );
+
+///////////////////////////////////////////////////////////////////////////////
+/// @brief Function-pointer for zeMemAllocImageFreeExp
+typedef ze_result_t (ZE_APICALL *ze_pfnImageMemFreeExp_t)(
+    ze_context_handle_t,
+    ze_image_mem_handle_exp_t
     );
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1108,6 +1154,8 @@ typedef ze_result_t (ZE_APICALL *ze_pfnImageViewCreateExt_t)(
 typedef struct _ze_image_dditable_t
 {
     ze_pfnImageGetProperties_t                                  pfnGetProperties;
+    ze_pfnImageMemAllocExp_t                                    pfnMemAllocExp;
+    ze_pfnImageMemFreeExp_t                                     pfnMemFreeExp;
     ze_pfnImageCreate_t                                         pfnCreate;
     ze_pfnImageDestroy_t                                        pfnDestroy;
     ze_pfnImageGetAllocPropertiesExt_t                          pfnGetAllocPropertiesExt;

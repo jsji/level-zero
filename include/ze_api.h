@@ -131,6 +131,10 @@ typedef struct _ze_event_handle_t *ze_event_handle_t;
 typedef struct _ze_image_handle_t *ze_image_handle_t;
 
 ///////////////////////////////////////////////////////////////////////////////
+/// @brief Handle of driver's image memory
+typedef struct _ze_image_mem_handle_exp_t* ze_image_mem_handle_exp_t;
+
+///////////////////////////////////////////////////////////////////////////////
 /// @brief Handle of driver's module object
 typedef struct _ze_module_handle_t *ze_module_handle_t;
 
@@ -331,6 +335,8 @@ typedef enum _ze_structure_type_t
     ZE_STRUCTURE_TYPE_RTAS_DEVICE_EXP_PROPERTIES = 0x00020012,              ///< ::ze_rtas_device_exp_properties_t
     ZE_STRUCTURE_TYPE_RTAS_GEOMETRY_AABBS_EXP_CB_PARAMS = 0x00020013,       ///< ::ze_rtas_geometry_aabbs_exp_cb_params_t
     ZE_STRUCTURE_TYPE_COUNTER_BASED_EVENT_POOL_EXP_DESC = 0x00020014,       ///< ::ze_event_pool_counter_based_exp_desc_t
+    ZE_STRUCTURE_TYPE_IMAGE_MEM_ALLOC_DESC = 0x00020025,                    ///< ::ze_image_mem_alloc_exp_desc_t
+    ZE_STRUCTURE_TYPE_IMAGE_USM_ALLOC_DESC = 0x00020026,                    ///< ::ze_image_usm_alloc_exp_desc_t
     ZE_STRUCTURE_TYPE_FORCE_UINT32 = 0x7fffffff
 
 } ze_structure_type_t;
@@ -4460,6 +4466,14 @@ typedef struct _ze_image_properties_t
 } ze_image_properties_t;
 
 ///////////////////////////////////////////////////////////////////////////////
+/// @brief Image memory allocation descriptor
+typedef struct _ze_image_mem_alloc_exp_desc_t {
+    ze_structure_type_t stype;             // [in]
+    void *pNext;                           // [in,out][optional]
+    ze_image_mem_handle_exp_t hImageMem;   // [in]
+} ze_image_mem_alloc_exp_desc_t;
+
+///////////////////////////////////////////////////////////////////////////////
 /// @brief Retrieves supported properties of an image.
 /// 
 /// @details
@@ -4485,6 +4499,65 @@ zeImageGetProperties(
     ze_device_handle_t hDevice,                                             ///< [in] handle of the device
     const ze_image_desc_t* desc,                                            ///< [in] pointer to image descriptor
     ze_image_properties_t* pImageProperties                                 ///< [out] pointer to image properties
+    );
+
+///////////////////////////////////////////////////////////////////////////////
+/// @brief Allocates image memory on the context.
+///
+/// @details
+///     - The application must only use the image memory for the device, or its
+///       sub-devices, which was provided during creation.
+///     - The application may call this function from simultaneous threads.
+///     - The implementation of this function must be thread-safe.
+///
+/// @returns
+///     - ::ZE_RESULT_SUCCESS
+///     - ::ZE_RESULT_ERROR_UNINITIALIZED
+///     - ::ZE_RESULT_ERROR_DEVICE_LOST
+///     - ::ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY
+///     - ::ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY
+///     - ::ZE_RESULT_ERROR_INVALID_NULL_HANDLE
+///         + `nullptr == hContext`
+///         + `nullptr == hDevice`
+///     - ::ZE_RESULT_ERROR_INVALID_NULL_POINTER
+///         + `nullptr == desc`
+///         + `nullptr == pImageMem`
+///     - ::ZE_RESULT_ERROR_INVALID_ENUMERATION
+///         + `0x3 < desc->flags`
+///         + `::ZE_IMAGE_TYPE_BUFFER < desc->type`
+///     - ::ZE_RESULT_ERROR_UNSUPPORTED_IMAGE_FORMAT
+ZE_APIEXPORT ze_result_t ZE_APICALL
+zeImageMemAllocExp(
+    ze_context_handle_t hContext,                                           ///< [in] handle of the context object
+    ze_device_handle_t hDevice,                                             ///< [in] handle of the device
+    const ze_image_desc_t* desc,                                            ///< [in] pointer to image descriptor
+    ze_image_mem_handle_exp_t *phImageMem                                   ///< [out] handle of image memory allocation
+    );
+
+///////////////////////////////////////////////////////////////////////////////
+/// @brief Frees image memory on the context.
+///
+/// @details
+///     - The application must only use the image memory for the device, or its
+///       sub-devices, which was provided during creation.
+///     - The application may call this function from simultaneous threads.
+///     - The implementation of this function must be thread-safe.
+///
+/// @returns
+///     - ::ZE_RESULT_SUCCESS
+///     - ::ZE_RESULT_ERROR_UNINITIALIZED
+///     - ::ZE_RESULT_ERROR_DEVICE_LOST
+///     - ::ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY
+///     - ::ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY
+///     - ::ZE_RESULT_ERROR_INVALID_NULL_HANDLE
+///         + `nullptr == hContext`
+///     - ::ZE_RESULT_ERROR_INVALID_NULL_POINTER
+///         + `nullptr == pImageMem`
+///     - ::ZE_RESULT_ERROR_UNSUPPORTED_IMAGE_FORMAT
+ZE_APIEXPORT ze_result_t ZE_APICALL
+zeImageMemFreeExp(
+    ze_context_handle_t hContext,                                           ///< [in] handle of the context object
+    ze_image_mem_handle_exp_t hImageMem                                     ///< [in] handle of image memory allocation
     );
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -8115,6 +8188,123 @@ zeCommandListAppendImageCopyFromMemoryExt(
     uint32_t srcRowPitch,                                                   ///< [in] size in bytes of the 1D slice of the 2D region of a 2D or 3D
                                                                             ///< image or each image of a 1D or 2D image array being read
     uint32_t srcSlicePitch,                                                 ///< [in] size in bytes of the 2D slice of the 3D region of a 3D image or
+                                                                            ///< each image of a 1D or 2D image array being read
+    ze_event_handle_t hSignalEvent,                                         ///< [in][optional] handle of the event to signal on completion
+    uint32_t numWaitEvents,                                                 ///< [in][optional] number of events to wait on before launching; must be 0
+                                                                            ///< if `nullptr == phWaitEvents`
+    ze_event_handle_t* phWaitEvents                                         ///< [in][optional][range(0, numWaitEvents)] handle of the events to wait
+                                                                            ///< on before launching
+    );
+
+
+///////////////////////////////////////////////////////////////////////////////
+/// @brief Copies to an image memory from host memory.
+///
+/// @details
+///     - The implementation must not access the memory pointed to by srcptr as
+///       it is free to be modified by either the Host or device up until
+///       execution.
+///     - The application must ensure the image memory and events are accessible
+///       by the device on which the command list was created.
+///     - The application must ensure the image format descriptor for the
+///       destination image is a single-planar format.
+///     - The application must ensure that the rowPitch is set to 0 if image is
+///       a 1D image. Otherwise the rowPitch must be greater than or equal to
+///       the element size in bytes x width.
+///     - If rowPitch is set to 0, the appropriate row pitch is calculated based
+///       on the size of each element in bytes multiplied by width
+///     - The application must ensure that the slicePitch is set to 0 if image
+///       is a 1D or 2D image. Otherwise this value must be greater than or
+///       equal to rowPitch x height.
+///     - If slicePitch is set to 0, the appropriate slice pitch is calculated
+///       based on the rowPitch x height.
+///     - The application must ensure the command list, image and events were
+///       created, and the memory was allocated, on the same context.
+///     - The application must **not** call this function from simultaneous
+///       threads with the same command list handle.
+///     - The implementation of this function should be lock-free.
+///
+/// @returns
+///     - ::ZE_RESULT_SUCCESS
+///     - ::ZE_RESULT_ERROR_UNINITIALIZED
+///     - ::ZE_RESULT_ERROR_DEVICE_LOST
+///     - ::ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY
+///     - ::ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY
+///     - ::ZE_RESULT_ERROR_INVALID_NULL_HANDLE
+///         + `nullptr == hCommandList`
+///         + `nullptr == hDstImage`
+///     - ::ZE_RESULT_ERROR_INVALID_NULL_POINTER
+///         + `nullptr == srcptr`
+///     - ::ZE_RESULT_ERROR_INVALID_SYNCHRONIZATION_OBJECT
+///     - ::ZE_RESULT_ERROR_INVALID_SIZE
+///         + `(nullptr == phWaitEvents) && (0 < numWaitEvents)`
+ZE_APIEXPORT ze_result_t ZE_APICALL
+zeCommandListAppendImageMemoryCopyFromHostExp(
+    ze_command_list_handle_t hCommandList,                                  ///< [in] handle of command list
+    ze_image_mem_handle_exp_t hDstImageMem,                                 ///< [in] handle of destination image memory to copy to
+    const void* srcptr,                                                     ///< [in] pointer to source memory to copy from
+    const ze_image_region_t* pDstRegion,                                    ///< [in][optional] destination region descriptor
+    uint32_t srcRowPitch,                                                   ///< [in] size in bytes of the 1D slice of the 2D region of a 2D or 3D
+                                                                            ///< image or each image of a 1D or 2D image array being read
+    uint32_t srcSlicePitch,                                                 ///< [in] size in bytes of the 2D slice of the 3D region of a 3D image or
+                                                                            ///< each image of a 1D or 2D image array being read
+    ze_event_handle_t hSignalEvent,                                         ///< [in][optional] handle of the event to signal on completion
+    uint32_t numWaitEvents,                                                 ///< [in][optional] number of events to wait on before launching; must be 0
+                                                                            ///< if `nullptr == phWaitEvents`
+    ze_event_handle_t* phWaitEvents                                         ///< [in][optional][range(0, numWaitEvents)] handle of the events to wait
+                                                                            ///< on before launching
+    );
+
+///////////////////////////////////////////////////////////////////////////////
+/// @brief Copies an image memory to host memory.
+///
+/// @details
+///     - The implementation must not access the memory pointed to by dstptr as
+///       it is free to be modified by either the Host or device up until
+///       execution.
+///     - The application must ensure the image memory and events are accessible
+///       by the device on which the command list was created.
+///     - The application must ensure the image format descriptor for the
+///       destination image is a single-planar format.
+///     - The application must ensure that the rowPitch is set to 0 if image is
+///       a 1D image. Otherwise the rowPitch must be greater than or equal to
+///       the element size in bytes x width.
+///     - If rowPitch is set to 0, the appropriate row pitch is calculated based
+///       on the size of each element in bytes multiplied by width
+///     - The application must ensure that the slicePitch is set to 0 if image
+///       is a 1D or 2D image. Otherwise this value must be greater than or
+///       equal to rowPitch x height.
+///     - If slicePitch is set to 0, the appropriate slice pitch is calculated
+///       based on the rowPitch x height.
+///     - The application must ensure the command list, image and events were
+///       created, and the memory was allocated, on the same context.
+///     - The application must **not** call this function from simultaneous
+///       threads with the same command list handle.
+///     - The implementation of this function should be lock-free.
+///
+/// @returns
+///     - ::ZE_RESULT_SUCCESS
+///     - ::ZE_RESULT_ERROR_UNINITIALIZED
+///     - ::ZE_RESULT_ERROR_DEVICE_LOST
+///     - ::ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY
+///     - ::ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY
+///     - ::ZE_RESULT_ERROR_INVALID_NULL_HANDLE
+///         + `nullptr == hCommandList`
+///         + `nullptr == hSrcImageMem`
+///     - ::ZE_RESULT_ERROR_INVALID_NULL_POINTER
+///         + `nullptr == dstptr`
+///     - ::ZE_RESULT_ERROR_INVALID_SYNCHRONIZATION_OBJECT
+///     - ::ZE_RESULT_ERROR_INVALID_SIZE
+///         + `(nullptr == phWaitEvents) && (0 < numWaitEvents)`
+ZE_APIEXPORT ze_result_t ZE_APICALL
+zeCommandListAppendImageMemoryCopyToHostExp(
+    ze_command_list_handle_t hCommandList,                                  ///< [in] handle of command list
+    void* dstptr,                                                           ///< [in] pointer to destination memory to copy to
+    const ze_image_mem_handle_exp_t hSrcImageMem,                           ///< [in] handle of source image memory to copy from
+    const ze_image_region_t* pSrcRegion,                                    ///< [in][optional] source region descriptor
+    uint32_t dstRowPitch,                                                   ///< [in] size in bytes of the 1D slice of the 2D region of a 2D or 3D
+                                                                            ///< image or each image of a 1D or 2D image array being read
+    uint32_t dstSlicePitch,                                                 ///< [in] size in bytes of the 2D slice of the 3D region of a 3D image or
                                                                             ///< each image of a 1D or 2D image array being read
     ze_event_handle_t hSignalEvent,                                         ///< [in][optional] handle of the event to signal on completion
     uint32_t numWaitEvents,                                                 ///< [in][optional] number of events to wait on before launching; must be 0

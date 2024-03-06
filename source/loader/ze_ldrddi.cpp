@@ -2549,6 +2549,53 @@ namespace loader
     }
 
     ///////////////////////////////////////////////////////////////////////////////
+    /// @brief Intercept function for zeImageMemAllocExp
+    __zedlllocal ze_result_t ZE_APICALL
+    zeImageMemAllocExp(
+        ze_context_handle_t hContext,                   ///< [in] handle of the context object
+        ze_device_handle_t hDevice,                     ///< [in] handle of the device
+        const ze_image_desc_t* desc,                    ///< [in] pointer to image descriptor
+        ze_image_mem_handle_exp_t *phImageMem           ///< [out] handle of image memory allocation
+        )
+    {
+        // extract driver's function pointer table
+        auto dditable = reinterpret_cast<ze_context_object_t*>( hContext )->dditable;
+        auto pfnMemAllocExp = dditable->ze.Image.pfnMemAllocExp;
+        if( nullptr == pfnMemAllocExp )
+            return ZE_RESULT_ERROR_UNINITIALIZED;
+
+        // convert loader handle to driver handle
+        hContext = reinterpret_cast<ze_context_object_t*>( hContext )->handle;
+
+        // convert loader handle to driver handle
+        hDevice = reinterpret_cast<ze_device_object_t*>( hDevice )->handle;
+
+        // forward to device-driver
+        return pfnMemAllocExp( hContext, hDevice, desc, phImageMem );
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////
+    /// @brief Intercept function for zeImageMemFreeExp
+    __zedlllocal ze_result_t ZE_APICALL
+    zeImageMemFreeExp(
+        ze_context_handle_t hContext,                   ///< [in] handle of the context object
+        ze_image_mem_handle_exp_t hImageMem             ///< [in] handle of image memory allocation
+        )
+    {
+        // extract driver's function pointer table
+        auto dditable = reinterpret_cast<ze_context_object_t*>( hContext )->dditable;
+        auto pfnMemFreeExp = dditable->ze.Image.pfnMemFreeExp;
+        if( nullptr == pfnMemFreeExp )
+            return ZE_RESULT_ERROR_UNINITIALIZED;
+
+        // convert loader handle to driver handle
+        hContext = reinterpret_cast<ze_context_object_t*>( hContext )->handle;
+
+        // forward to device-driver
+        return pfnMemFreeExp( hContext, hImageMem );
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////
     /// @brief Intercept function for zeImageCreate
     __zedlllocal ze_result_t ZE_APICALL
     zeImageCreate(
@@ -4775,6 +4822,96 @@ namespace loader
     }
 
     ///////////////////////////////////////////////////////////////////////////////
+    /// @brief Intercept function for zeCommandListAppendImageMemoryCopyFromHostExp
+    __zedlllocal ze_result_t ZE_APICALL
+    zeCommandListAppendImageMemoryCopyFromHostExp(
+        ze_command_list_handle_t hCommandList,          ///< [in] handle of command list
+        ze_image_mem_handle_exp_t hDstImageMem,         ///< [in] handle of destination image memory to copy to
+        const void* srcptr,                             ///< [in] pointer to source memory to copy from
+        const ze_image_region_t* pDstRegion,            ///< [in][optional] destination region descriptor
+        uint32_t srcRowPitch,                           ///< [in] size in bytes of the 1D slice of the 2D region of a 2D or 3D
+                                                        ///< image or each image of a 1D or 2D image array being read
+        uint32_t srcSlicePitch,                         ///< [in] size in bytes of the 2D slice of the 3D region of a 3D image or
+                                                        ///< each image of a 1D or 2D image array being read
+        ze_event_handle_t hSignalEvent,                 ///< [in][optional] handle of the event to signal on completion
+        uint32_t numWaitEvents,                         ///< [in][optional] number of events to wait on before launching; must be 0
+                                                        ///< if `nullptr == phWaitEvents`
+        ze_event_handle_t* phWaitEvents                 ///< [in][optional][range(0, numWaitEvents)] handle of the events to wait
+                                                        ///< on before launching
+        )
+    {
+        ze_result_t result = ZE_RESULT_SUCCESS;
+
+        // extract driver's function pointer table
+        auto dditable = reinterpret_cast<ze_command_list_object_t*>( hCommandList )->dditable;
+        auto pfnAppendImageMemoryCopyFromHostExp = dditable->ze.CommandList.pfnAppendImageMemoryCopyFromHostExp;
+        if( nullptr == pfnAppendImageMemoryCopyFromHostExp )
+            return ZE_RESULT_ERROR_UNINITIALIZED;
+
+        // convert loader handle to driver handle
+        hCommandList = reinterpret_cast<ze_command_list_object_t*>( hCommandList )->handle;
+
+        // convert loader handle to driver handle
+        hSignalEvent = ( hSignalEvent ) ? reinterpret_cast<ze_event_object_t*>( hSignalEvent )->handle : nullptr;
+
+        // convert loader handles to driver handles
+        auto phWaitEventsLocal = new ze_event_handle_t [numWaitEvents];
+        for( size_t i = 0; ( nullptr != phWaitEvents ) && ( i < numWaitEvents ); ++i )
+            phWaitEventsLocal[ i ] = reinterpret_cast<ze_event_object_t*>( phWaitEvents[ i ] )->handle;
+
+        // forward to device-driver
+        result = pfnAppendImageMemoryCopyFromHostExp( hCommandList, hDstImageMem, srcptr, pDstRegion, srcRowPitch, srcSlicePitch, hSignalEvent, numWaitEvents, phWaitEventsLocal );
+        delete []phWaitEventsLocal;
+
+        return result;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////
+    /// @brief Intercept function for zeCommandListAppendImageMemoryCopyToHostExp
+    __zedlllocal ze_result_t ZE_APICALL
+    zeCommandListAppendImageMemoryCopyToHostExp(
+        ze_command_list_handle_t hCommandList,          ///< [in] handle of command list
+        void* dstptr,                                   ///< [in] pointer to source memory to copy to
+        const ze_image_mem_handle_exp_t hSrcImageMem,   ///< [in] handle of destination image memory to copy from
+        const ze_image_region_t* pSrcRegion,            ///< [in][optional] destination region descriptor
+        uint32_t dstRowPitch,                           ///< [in] size in bytes of the 1D slice of the 2D region of a 2D or 3D
+                                                        ///< image or each image of a 1D or 2D image array being read
+        uint32_t dstSlicePitch,                         ///< [in] size in bytes of the 2D slice of the 3D region of a 3D image or
+                                                        ///< each image of a 1D or 2D image array being read
+        ze_event_handle_t hSignalEvent,                 ///< [in][optional] handle of the event to signal on completion
+        uint32_t numWaitEvents,                         ///< [in][optional] number of events to wait on before launching; must be 0
+                                                        ///< if `nullptr == phWaitEvents`
+        ze_event_handle_t* phWaitEvents                 ///< [in][optional][range(0, numWaitEvents)] handle of the events to wait
+                                                        ///< on before launching
+        )
+    {
+        ze_result_t result = ZE_RESULT_SUCCESS;
+
+        // extract driver's function pointer table
+        auto dditable = reinterpret_cast<ze_command_list_object_t*>( hCommandList )->dditable;
+        auto pfnAppendImageMemoryCopyToHostExp = dditable->ze.CommandList.pfnAppendImageMemoryCopyToHostExp;
+        if( nullptr == pfnAppendImageMemoryCopyToHostExp )
+            return ZE_RESULT_ERROR_UNINITIALIZED;
+
+        // convert loader handle to driver handle
+        hCommandList = reinterpret_cast<ze_command_list_object_t*>( hCommandList )->handle;
+
+        // convert loader handle to driver handle
+        hSignalEvent = ( hSignalEvent ) ? reinterpret_cast<ze_event_object_t*>( hSignalEvent )->handle : nullptr;
+
+        // convert loader handles to driver handles
+        auto phWaitEventsLocal = new ze_event_handle_t [numWaitEvents];
+        for( size_t i = 0; ( nullptr != phWaitEvents ) && ( i < numWaitEvents ); ++i )
+            phWaitEventsLocal[ i ] = reinterpret_cast<ze_event_object_t*>( phWaitEvents[ i ] )->handle;
+
+        // forward to device-driver
+        result = pfnAppendImageMemoryCopyToHostExp( hCommandList, dstptr, hSrcImageMem, pSrcRegion, dstRowPitch, dstSlicePitch, hSignalEvent, numWaitEvents, phWaitEventsLocal );
+        delete []phWaitEventsLocal;
+
+        return result;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////
     /// @brief Intercept function for zeImageGetAllocPropertiesExt
     __zedlllocal ze_result_t ZE_APICALL
     zeImageGetAllocPropertiesExt(
@@ -6435,6 +6572,8 @@ zeGetCommandListProcAddrTable(
             pDdiTable->pfnAppendLaunchMultipleKernelsIndirect      = loader::zeCommandListAppendLaunchMultipleKernelsIndirect;
             pDdiTable->pfnAppendImageCopyToMemoryExt               = loader::zeCommandListAppendImageCopyToMemoryExt;
             pDdiTable->pfnAppendImageCopyFromMemoryExt             = loader::zeCommandListAppendImageCopyFromMemoryExt;
+            pDdiTable->pfnAppendImageMemoryCopyFromHostExp         = loader::zeCommandListAppendImageMemoryCopyFromHostExp;
+            pDdiTable->pfnAppendImageMemoryCopyToHostExp           = loader::zeCommandListAppendImageMemoryCopyToHostExp;
             pDdiTable->pfnHostSynchronize                          = loader::zeCommandListHostSynchronize;
         }
         else
@@ -6898,6 +7037,8 @@ zeGetImageProcAddrTable(
         {
             // return pointers to loader's DDIs
             pDdiTable->pfnGetProperties                            = loader::zeImageGetProperties;
+            pDdiTable->pfnMemAllocExp                              = loader::zeImageMemAllocExp;
+            pDdiTable->pfnMemFreeExp                               = loader::zeImageMemFreeExp;
             pDdiTable->pfnCreate                                   = loader::zeImageCreate;
             pDdiTable->pfnDestroy                                  = loader::zeImageDestroy;
             pDdiTable->pfnGetAllocPropertiesExt                    = loader::zeImageGetAllocPropertiesExt;
